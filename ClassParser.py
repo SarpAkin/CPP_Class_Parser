@@ -76,7 +76,7 @@ class CPP_class:
     def __init__(self, typename: str, data: str):
         self.typename = typename
         self.raw = data
-        b: str = data.find(generatedField_TagS)
+        b: int = data.find(generatedField_TagS)
 
         # remove the generated code
         if(b != -1):
@@ -124,6 +124,9 @@ class CPP_class:
 
         data.replace("struct", "")
         data.replace("class", "")
+        data.replace("private:", "")
+        data.replace("protected:", "")
+        data.replace("public:", "")
 
         splitmarker = "/*split!*/"
 
@@ -136,4 +139,74 @@ class CPP_class:
             if(hasattr(cppv, "variablename")):
                 self.variables.append(cppv)
 
-class CPP_Parser
+    def GetString(self) -> str:
+        b: int = self.raw.find(generatedField_TagS)
+        if(b != -1):
+            self.raw = self.raw[0:b + len(generatedField_TagS)] + self.generated +\
+                self.raw[self.raw.find(generatedField_TagE):len(self.raw)]
+        else:
+            self.raw += generatedField_TagS + self.generated + generatedField_TagE
+        return self.raw
+
+
+# Parses and modifies cpp and header files
+def ParseClass(headerPath: str, sourcepath: str, func):
+    header = open(headerPath).read()
+    srcGenerated = ""
+
+    classIndex = header.find("class")
+    while(classIndex != -1):
+        openbrac = header.find("{", classIndex)
+        className = header[header.find(" ", classIndex):openbrac - 1].strip()
+        closeBrac = findEnd(header, openbrac, "{", "}")
+        # Construct the class
+        class_ = CPP_class(className, header[openbrac + 1:closeBrac - 1])
+
+        # Execute the custom function
+        srcGenerated += func(class_)
+
+        # replace the class
+        header = header[0:openbrac + 1] + \
+            class_.GetString() + header[closeBrac - 1:len(header)]
+
+        classIndex = header.find("class", closeBrac)
+
+    # Same code but for struct
+    classIndex = header.find("struct")
+    while(classIndex != -1):
+        openbrac = header.find("{", classIndex)
+        className = header[header.find(" ", classIndex):openbrac - 1].strip()
+        closeBrac = findEnd(header, openbrac, "{", "}")
+        # Construct the class
+        class_ = CPP_class(className, header[openbrac + 1:closeBrac - 1])
+
+        # Execute the custom function
+        srcGenerated += func(class_)
+
+        # replace the class
+        header = header[0:openbrac] + \
+            class_.GetString() + header[closeBrac:len(header)]
+
+        classIndex = header.find("struct", closeBrac)
+
+    source = open(sourcepath).read()
+
+    # replace the generated code
+    b: int = source.find(generatedField_TagS)
+    if(b != -1):
+            source = source[0:b + len(generatedField_TagS)] + srcGenerated +\
+                source[source.find(generatedField_TagE):len(source)]
+    else:
+        source += generatedField_TagS + srcGenerated + generatedField_TagE
+
+    # write the new code
+    open(sourcepath, "w").write(source)
+    open(headerPath, "w").write(header)
+
+
+# Example function which is passes to parser and called when a class is parsed
+def ExFunc(class_: CPP_class) -> str:
+    # Code goes here
+
+    #
+    return ""  # return the generated body part or empty string
