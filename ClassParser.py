@@ -30,16 +30,16 @@ def TurnTotag(raw: str) -> str:
 class CPP_var:
     typename: str
     variablename: str
-    tags = list()
+    tags: list
 
     def __init__(self, data: str):
+        self.tags = list()
         data = data.strip()
-
         # Get the tags
+        tagind = 0
         while(True):
-            tagind = data.find("/*[")
+            tagind = data.find("/*[", tagind)
             if(tagind != -1):
-                tags = list()
                 self.tags.append(data[tagind + len("/*["):data.find("]*/")])
                 data = data[0:tagind] + \
                     data[data.find("]*/") + len("]*/"):len(data)]
@@ -55,8 +55,8 @@ class CPP_var:
         splitted = data.rsplit(" ", 1)
 
         if(len(splitted) != 2):
-            print("invalid variable")
-            print(splitted)
+            #print("invalid variable")
+            # print(splitted)
             return
 
         self.typename = splitted[0]
@@ -94,22 +94,15 @@ class CPP_class:
                 break
 
         # remove comments while ignoreing tags
-        while(True):
-            comment = data.find("/*")
-            if(comment != -1):
-                if(data[comment + 2] != "["):
-                    data = data[0:comment] + \
-                        data[data.find("*/") + len("*/"):len(data)]
-            else:
-                break
-
-        while(True):
-            brac = data.find("{")
-            if(brac != -1):
-                data = data[0:brac] + \
-                    data[findEnd(data, brac, "{", "}"):len(data)]
-            else:
-                break
+            comment = 0
+            while(True):
+                comment = data.find("/*", comment)
+                if(comment != -1):
+                    if(data[comment + 2] != "["):
+                        data = data[0:comment] + \
+                            data[data.find("*/") + len("*/"):len(data)]
+                else:
+                    break
 
         while(True):
             brac = data.find("(")
@@ -119,14 +112,45 @@ class CPP_class:
             else:
                 break
 
-        data.replace("\t", " ")
-        data.replace("\n", " ")
+        while(True):
+            tagFStart = data.find("/*[{")
+            if(tagFStart != -1):
+                tag = data[data.find("{", tagFStart) +
+                           1:data.find("]", tagFStart)]
+                tag_ = TurnTotag(tag)
+                semic = data.find(";",tagFStart)
+                endTag = TurnTotag(tag + "}")
+                while(semic < data.find(endTag)):
+                    if(semic != -1):
+                        # add the tag before semicloumn
+                        data = data[:semic] + tag_ + data[semic:]
+                        semic += len(tag_)
+                        semic = data.find(";", semic + 1)
+                    else:
+                        break
+                # remove the block tags
+                data = data[:data.find(endTag)] + \
+                    data[data.find(endTag) + len(endTag):]
+                data = data[:tagFStart] + \
+                    data[data.find("]*/", tagFStart) + len("]*/"):]
+            else:
+                break
+        while(True):
+            brac = data.find("{")
+            if(brac != -1):
+                data = data[0:brac] + \
+                    data[findEnd(data, brac, "{", "}"):len(data)]
+            else:
+                break
 
-        data.replace("struct", "")
-        data.replace("class", "")
-        data.replace("private:", "")
-        data.replace("protected:", "")
-        data.replace("public:", "")
+        data = data.replace("\t", " ")
+        data = data.replace("\n", " ")
+
+        data = data.replace("struct", "")
+        data = data.replace("class", "")
+        data = data.replace("private:", "")
+        data = data.replace("protected:", "")
+        data = data.replace("public:", "")
 
         splitmarker = "/*split!*/"
 
@@ -194,8 +218,8 @@ def ParseClass(headerPath: str, sourcepath: str, func):
     # replace the generated code
     b: int = source.find(generatedField_TagS)
     if(b != -1):
-            source = source[0:b + len(generatedField_TagS)] + srcGenerated +\
-                source[source.find(generatedField_TagE):len(source)]
+        source = source[0:b + len(generatedField_TagS)] + srcGenerated +\
+            source[source.find(generatedField_TagE):len(source)]
     else:
         source += generatedField_TagS + srcGenerated + generatedField_TagE
 
